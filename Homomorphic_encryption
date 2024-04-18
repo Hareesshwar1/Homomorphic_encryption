@@ -1,0 +1,89 @@
+import math
+import random
+import secrets
+
+# Function to check if a number is prime
+def is_prime(x):
+    if x <= 1:
+        return False
+    for i in range(2, int(math.sqrt(x)) + 1):
+        if x % i == 0:
+            return False
+    return True
+
+# Function to generate a random prime of bit length `bit_length`
+def generate_prime(bit_length):
+    while True:
+        num = secrets.randbits(bit_length)
+        if is_prime(num):
+            return num
+
+# Generate secure random numbers for use in Paillier encryption
+def generate_secure_random(n):
+    return secrets.randbelow(n - 1) + 1
+
+# Generate Paillier public and private keys
+def generate_paillier_keys(bit_length):
+    p = generate_prime(bit_length // 2)
+    q = generate_prime(bit_length // 2)
+    n = p * q
+    phi = (p - 1) * (q - 1)
+    lmbda = phi // math.gcd(p - 1, q - 1)
+    mu = pow(n, -1, phi)
+    return n, lmbda, mu
+
+# Encrypt a numerical message `m` using Paillier encryption
+def paillier_encrypt(m, n, g):
+    r = generate_secure_random(n)
+    c = (pow(g, m, n*n) * pow(r, n, n*n)) % (n*n)
+    return c
+
+# Decrypt a ciphertext `c` using Paillier decryption
+def paillier_decrypt(c, n, lmbda, mu):
+    plain = ((pow(c, lmbda, n*n) - 1) // n * mu) % n
+    # Ensure the decrypted message is within the valid range
+    if plain > n // 2:
+        plain -= n
+    return plain
+
+# Perform Paillier homomorphic addition
+def paillier_add(c1, c2, n):
+    return (c1 * c2) % (n * n)
+
+# Perform Paillier homomorphic multiplication by a constant
+def paillier_multiply_const(c, constant, n):
+    return pow(c, constant, n * n)
+
+# Re-encrypt a ciphertext with a new random value
+def paillier_reencrypt(c, n, g):
+    r = generate_secure_random(n)
+    c_reencrypted = pow(g, n, n*n) * (c * pow(r, n, n*n)) % (n*n)
+    return c_reencrypted
+
+# Function to convert a string message to a numerical representation
+def text_to_numerical(text):
+    return int.from_bytes(text.encode(), 'big')
+
+# Function to convert a numerical representation back to a string message
+def numerical_to_text(num):
+    return num.to_bytes((num.bit_length() + 7) // 8, 'big').decode()
+
+# Example usage
+bit_length = 256
+n, lmbda, mu = generate_paillier_keys(bit_length)
+g = n + 1
+
+# Encrypt a text message
+text_message = "Hello, World!"
+numerical_message = text_to_numerical(text_message)
+ciphertext = paillier_encrypt(numerical_message, n, g)
+print("Encrypted ciphertext:", ciphertext)
+
+# Decrypt the ciphertext and convert it back to text
+decrypted_numerical_message = paillier_decrypt(ciphertext, n, lmbda, mu)
+decrypted_text_message = numerical_to_text(decrypted_numerical_message)
+print("Decrypted text message:", decrypted_text_message)
+
+# Re-encrypt the ciphertext
+ciphertext_reencrypted = paillier_reencrypt(ciphertext, n, g)
+print("Re-encrypted ciphertext:", ciphertext_reencrypted)
